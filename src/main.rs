@@ -72,13 +72,14 @@ async fn main() {
 
         let result = Decode!(response.as_slice(), Vec<OpRecord>).expect("Failed to decode the response data.");
         save_to_db(result.clone());
+        println!("from {} to {}", begin.clone(), begin.clone() + result.len() - 1);
         if result.len() < num {
             begin += result.len();
             num = QUERY_NUM;
             interval = INTERVAL;
             thread::sleep(Duration::from_millis(interval));
         } else {
-            begin += QUERY_NUM;
+            begin += num;
             num = QUERY_NUM_S;
             interval = INTERVAL_S;
             thread::sleep(Duration::from_millis(interval));
