@@ -1,6 +1,6 @@
 # Sync canister data to offchain storage
 
-
+编译之前先把源码的私钥地址设置好
 
 ## 1. Token canister
 
