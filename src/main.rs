@@ -3,6 +3,7 @@ use candid::{Encode, Decode, CandidType, types::number::{Nat, Int}};
 use serde::Deserialize;
 use std::{thread, time::Duration};
 use rusqlite::Connection;
+use std::env;
 
 #[allow(non_camel_case_types)]
 #[derive(CandidType, Deserialize, Clone, Debug)]
@@ -51,6 +52,13 @@ const QUERY_NUM_S: usize = 13000;
 
 #[tokio::main]
 async fn main() {
+    let args: Vec<String> = env::args().collect();
+    let mut begin: Nat = if args.len() < 2 {
+        Nat::from(0)
+    } else {
+        Nat::from(args[1].parse::<u64>().expect("input not number"))
+    };
+
     let agent = Agent::builder()
         .with_transport(
             ReqwestHttpReplicaV2Transport::create(DEFAULT_IC_GATEWAY)
@@ -60,7 +68,6 @@ async fn main() {
         .build()
         .expect("Failed to build the Agent");
     
-    let mut begin: Nat = Nat::from(0);
     let mut num = QUERY_NUM_S;
     let mut interval = 0;
     loop {        
