@@ -5,45 +5,12 @@ use std::{thread, time::Duration};
 use rusqlite::Connection;
 use std::env;
 
-#[allow(non_camel_case_types)]
-#[derive(CandidType, Deserialize, Clone, Debug)]
-enum Operation {
-    deposit, withdraw, tokenTransfer, tokenApprove,
-    lpTransfer, lpApprove, 
-    createPair, swap, addLiquidity, removeLiquidity
-}
+mod types;
 
-#[allow(non_snake_case)]
-#[derive(CandidType, Deserialize, Clone, Debug)]
-struct OpRecord {
-    caller: Principal,
-    op: Operation,
-    index: Nat,
-    tokenId: String,
-    from: Principal,
-    to: Principal,
-    amount: Nat,
-    amount0: Nat,
-    amount1: Nat,
-    timestamp: Int,
-}
-
-#[derive(Debug)]
-struct History {
-    index: u64,
-    caller: String,
-    op: Operation,
-    token_id: String,
-    from: String,
-    to: String,
-    amount: u64,
-    amount0: u64,
-    amount1: u64,
-    timestamp: u64,
-}
+use types::*;
 
 const DEFAULT_IC_GATEWAY: &str = "https://ic0.app";
-const KEY_PATH: &str = "/Users/flyq/.config/dfx/identity/default/identity.pem";
+const KEY_PATH: &str = "/Users/cyan/.config/dfx/identity/default/identity.pem";
 const DSWAP_STORAGE: &str = "gsf2f-kaaaa-aaaah-qaj4q-cai";
 const INTERVAL: u64 = 1 * 60 * 1000; // 1 min
 const INTERVAL_S: u64 = 0; // 0 s
@@ -77,7 +44,7 @@ async fn main() {
             .await
             .expect("Failed to call canister");
 
-        let result = Decode!(response.as_slice(), Vec<OpRecord>).expect("Failed to decode the response data.");
+        let result = Decode!(response.as_slice(), Vec<DSwapOpRecord>).expect("Failed to decode the response data.");
         save_to_db(result.clone());
         println!("from {} to {}", begin.clone(), begin.clone() + result.len() - 1);
         if result.len() < num {
@@ -94,7 +61,7 @@ async fn main() {
     }
 }
 
-fn save_to_db(data: Vec<OpRecord>) {
+fn save_to_db(data: Vec<DSwapOpRecord>) {
     println!("{:?}", data.len());
     let conn = Connection::open("history.db").expect("Failed to open history.db");
 
@@ -125,18 +92,18 @@ fn save_to_db(data: Vec<OpRecord>) {
     } 
 }
 
-fn op_to_text(o: Operation) -> String {
+fn op_to_text(o: DSwapOperation) -> String {
     match o {
-        Operation::deposit => String::from("deposit"),
-        Operation::withdraw => String::from("withdraw"),
-        Operation::tokenTransfer => String::from("tokenTransfer"),
-        Operation::tokenApprove => String::from("tokenApprove"),
-        Operation::lpTransfer => String::from("lpTransfer"),
-        Operation::lpApprove => String::from("lpApprove"),
-        Operation::createPair => String::from("createPair"),
-        Operation::swap => String::from("swap"),
-        Operation::addLiquidity => String::from("addLiquidity"),
-        Operation::removeLiquidity => String::from("removeLiquidity"),
+        DSwapOperation::deposit => String::from("deposit"),
+        DSwapOperation::withdraw => String::from("withdraw"),
+        DSwapOperation::tokenTransfer => String::from("tokenTransfer"),
+        DSwapOperation::tokenApprove => String::from("tokenApprove"),
+        DSwapOperation::lpTransfer => String::from("lpTransfer"),
+        DSwapOperation::lpApprove => String::from("lpApprove"),
+        DSwapOperation::createPair => String::from("createPair"),
+        DSwapOperation::swap => String::from("swap"),
+        DSwapOperation::addLiquidity => String::from("addLiquidity"),
+        DSwapOperation::removeLiquidity => String::from("removeLiquidity"),
     }
 }
 
