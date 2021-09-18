@@ -1,0 +1,110 @@
+type TxRecord__1 = 
+ record {
+   amount: nat;
+   amount0: nat;
+   amount1: nat;
+   caller: principal;
+   fee: nat;
+   from: principal;
+   index: nat;
+   op: Operation;
+   timestamp: Time;
+   to: principal;
+   tokenId: text;
+ };
+type TxRecord = 
+ record {
+   amount: nat;
+   amount0: nat;
+   amount1: nat;
+   caller: principal;
+   fee: nat;
+   from: principal;
+   index: nat;
+   op: Operation;
+   timestamp: Time;
+   to: principal;
+   tokenId: text;
+ };
+type Time = int;
+type Storage = 
+ service {
+   addRecord: (principal, Operation__1, text, principal, principal, nat, 
+    nat, nat, nat, Time) -> (nat);
+   flush: () -> (bool);
+   getBucket: () -> (Bucket);
+   getStatus: () -> (Status__1) query;
+   getTransaction: (nat) -> (TxRecord__1);
+   getTransactions: (nat, nat) -> (vec TxRecord__1);
+   getUserTransactionAmount: (principal) -> (nat) query;
+   getUserTransactions: (principal, nat, nat) -> (vec TxRecord__1);
+   historySize: () -> (nat);
+   newBucket: () -> (Bucket);
+   setDSwapCanisterId: (principal) -> (bool);
+ };
+type Status__1 = 
+ record {
+   buckets: vec BucketInfoExt;
+   bufferSize: nat;
+   chunkSize: nat;
+   cycles: nat;
+   dswap: principal;
+   flushing: bool;
+   memSize: nat;
+   owner: principal;
+   recordsPerBucket: nat;
+   txAmount: nat;
+ };
+type Status = 
+ record {
+   cycles: nat;
+   length: nat;
+   memSize: nat;
+   start: nat;
+   storageId: principal;
+ };
+type Operation__1 = 
+ variant {
+   addLiquidity;
+   createPair;
+   deposit;
+   lpApprove;
+   lpTransfer;
+   lpTransferFrom;
+   removeLiquidity;
+   swap;
+   tokenApprove;
+   tokenTransfer;
+   tokenTransferFrom;
+   withdraw;
+ };
+type Operation = 
+ variant {
+   addLiquidity;
+   createPair;
+   deposit;
+   lpApprove;
+   lpTransfer;
+   lpTransferFrom;
+   removeLiquidity;
+   swap;
+   tokenApprove;
+   tokenTransfer;
+   tokenTransferFrom;
+   withdraw;
+ };
+type BucketInfoExt = 
+ record {
+   bucketId: principal;
+   id: nat;
+   length: nat;
+   start: nat;
+ };
+type Bucket = 
+ service {
+   addRecords: (vec TxRecord) -> (nat);
+   getStatus: () -> (Status) query;
+   getTransaction: (nat) -> (TxRecord) query;
+   getTransactions: (nat, nat) -> (vec TxRecord) query;
+ };
+service : (principal, principal) -> Storage

@@ -1,0 +1,81 @@
+type TxReceipt = 
+ variant {
+   err: variant {
+          InsufficientAllowance;
+          InsufficientBalance;
+        };
+   ok: nat;
+ };
+type TokenRegistry = 
+ service {
+   addToken: (principal) -> (bool);
+   claimFee: () -> (TxReceipt);
+   createToken: (text, text, text, nat8, nat, nat) -> (principal);
+   getCyclesBalance: () -> (nat) query;
+   getMaxTokenNumber: () -> (nat) query;
+   getMaxTokenNumberPerUser: () -> (nat) query;
+   getStats: () -> (Stats) query;
+   getTokenCanisterStatus: (principal) -> (opt CanisterStatus);
+   getTokenCount: () -> (nat) query;
+   getTokenInfo: (principal) -> (opt TokenInfo) query;
+   getTokenList: () -> (vec TokenInfo) query;
+   getTokens: (nat, nat) -> (vec TokenInfo, nat) query;
+   getTokensByName: (text, nat, nat) -> (vec TokenInfo, nat) query;
+   getUserTokenList: (principal) -> (vec TokenInfo) query;
+   getUserTokenNumber: (principal) -> (nat) query;
+   modifyTokenInfo: (TokenInfo) -> (bool);
+   removeToken: (principal) -> () oneway;
+   setController: (principal) -> (bool);
+   setCyclesPerToken: (nat) -> () oneway;
+   setFee: (nat) -> (bool);
+   setMaxTokenNumber: (nat) -> () oneway;
+   setMaxTokenNumberPerUser: (nat) -> () oneway;
+   setNumTokens: (nat) -> (bool);
+   setOwner: (principal) -> () oneway;
+ };
+type TokenInfo = 
+ record {
+   canisterId: principal;
+   decimals: nat8;
+   fee: nat;
+   index: nat;
+   logo: text;
+   name: text;
+   owner: principal;
+   symbol: text;
+   timestamp: int;
+   totalSupply: nat;
+ };
+type Status = 
+ variant {
+   running;
+   stopped;
+   stopping;
+ };
+type Stats = 
+ record {
+   cycles: nat;
+   cyclesPerToken: nat;
+   fee: nat;
+   feeTokenId: principal;
+   maxNumTokens: nat;
+   maxNumTokensPerId: nat;
+   numTokens: nat;
+   owner: principal;
+ };
+type CanisterStatus = 
+ record {
+   cycles: nat;
+   memory_size: nat;
+   module_hash: opt blob;
+   settings: CanisterSettings;
+   status: Status;
+ };
+type CanisterSettings = 
+ record {
+   compute_allocation: opt nat;
+   controllers: opt vec principal;
+   freezing_threshold: opt nat;
+   memory_allocation: opt nat;
+ };
+service : (principal, principal, nat) -> TokenRegistry
