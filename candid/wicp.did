@@ -1,0 +1,100 @@
+type TxRecord = 
+ record {
+   amount: nat;
+   caller: opt principal;
+   fee: nat;
+   from: principal;
+   index: nat;
+   op: Operation;
+   timestamp: Time;
+   to: principal;
+ };
+type TxReceipt = 
+ variant {
+   err:
+    variant {
+      AmountTooSmall;
+      InsufficientAllowance;
+      InsufficientBalance;
+      Unauthorized;
+    };
+   ok: nat;
+ };
+type TransactionNotification = 
+ record {
+   amount: ICPTs;
+   block_height: nat64;
+   from: principal;
+   from_subaccount: opt vec nat8;
+   memo: nat64;
+   to: principal;
+   to_subaccount: opt vec nat8;
+ };
+type TokenInfo = 
+ record {
+   cycles: nat;
+   deployTime: Time;
+   feeTo: principal;
+   historySize: nat;
+   holderNumber: nat;
+   metadata: Metadata;
+ };
+type Token = 
+ service {
+   allowance: (principal, principal) -> (nat) query;
+   approve: (principal, nat) -> (TxReceipt);
+   balanceOf: (principal) -> (nat) query;
+   decimals: () -> (nat8) query;
+   getAllowanceSize: () -> (nat) query;
+   getHolders: (nat, nat) -> (vec record {
+                                    principal;
+                                    nat;
+                                  }) query;
+   getMetadata: () -> (Metadata) query;
+   getPendings: () -> (vec TxRecord);
+   getTokenInfo: () -> (TokenInfo) query;
+   getTransaction: (nat) -> (TxRecord) query;
+   getTransactions: (nat, nat) -> (vec TxRecord) query;
+   getUserApprovals: (principal) -> (vec record {
+                                           principal;
+                                           nat;
+                                         }) query;
+   getUserTransactionAmount: (principal) -> (nat) query;
+   getUserTransactions: (principal, nat, nat) -> (vec TxRecord) query;
+   historySize: () -> (nat) query;
+   logo: () -> (text) query;
+   name: () -> (text) query;
+   restoreBurn: (nat) -> (bool);
+   setFee: (nat) -> (bool);
+   setFeeTo: (principal) -> (bool);
+   setLogo: (text) -> (bool);
+   setOwner: (principal) -> (bool);
+   setThresh: (nat64) -> () oneway;
+   symbol: () -> (text) query;
+   totalSupply: () -> (nat) query;
+   transaction_notification: (TransactionNotification) -> (TxReceipt);
+   transfer: (principal, nat) -> (TxReceipt);
+   transferFrom: (principal, principal, nat) -> (TxReceipt);
+   withdraw: (nat64, text) -> (TxReceipt);
+ };
+type Time = int;
+type Operation = 
+ variant {
+   approve;
+   burn: nat64;
+   mint;
+   transfer;
+   transferFrom;
+ };
+type Metadata = 
+ record {
+   decimals: nat8;
+   fee: nat;
+   logo: text;
+   name: text;
+   owner: principal;
+   symbol: text;
+   totalSupply: nat;
+ };
+type ICPTs = record {e8s: nat64;};
+service : (text, principal) -> Token
