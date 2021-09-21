@@ -121,6 +121,36 @@ pub struct TxRecord {
     pub timestamp: Int,
 }
 
+#[allow(non_camel_case_types)]
+#[derive(CandidType, Deserialize, Clone, Debug)]
+pub enum TxTokenOperationBurn {
+    approve, burn(u64), mint, transfer, transferFrom
+}
+
+impl TxTokenOperationBurn {
+    pub fn to_text(&self) -> String {
+        match self {
+            Self::approve => String::from("approve"),
+            Self::burn(c) => format!("burn {}", c),
+            Self::mint => String::from("mint"),
+            Self::transfer => String::from("transfer"),
+            Self::transferFrom => String::from("transferFrom"),
+        }
+    }
+}
+
+#[derive(CandidType, Deserialize, Clone, Debug)]
+pub struct TxRecordBurn {
+    pub index: Nat,
+    pub caller: Option<Principal>,
+    pub op: TxTokenOperationBurn,
+    pub from: Principal,
+    pub to: Principal,
+    pub amount: Nat,
+    pub fee: Nat,
+    pub timestamp: Int,
+}
+
 #[allow(non_snake_case)]
 #[derive(CandidType, Deserialize, Clone, Debug)]
 pub struct TokenInfo {
