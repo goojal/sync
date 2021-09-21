@@ -1,2 +1,7 @@
 /target
 history.db
+
+*.db
+*.db-journal
+
+Cargo.lock
