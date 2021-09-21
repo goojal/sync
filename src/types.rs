@@ -13,6 +13,24 @@ pub enum DSwapOperation {
     createPair, swap, addLiquidity, removeLiquidity
 }
 
+impl DSwapOperation {
+    pub fn to_text(&self) -> String {
+        match self {
+            Self::deposit => String::from("deposit"),
+            Self::withdraw => String::from("withdraw"),
+            Self::tokenTransfer => String::from("tokenTransfer"),
+            Self::tokenApprove => String::from("tokenApprove"),
+            Self::lpTransfer => String::from("lpTransfer"),
+            Self::lpApprove => String::from("lpApprove"),
+            Self::createPair => String::from("createPair"),
+            Self::swap => String::from("swap"),
+            Self::addLiquidity => String::from("addLiquidity"),
+            Self::removeLiquidity => String::from("removeLiquidity"),
+        }
+    }
+}
+
+
 #[allow(non_snake_case)]
 #[derive(CandidType, Deserialize, Clone, Debug)]
 pub struct DSwapOpRecord {
@@ -72,4 +90,48 @@ pub struct TokenHistory {
     amount: u64,
     fee: u64,
     timestamp: u64,
+}
+
+#[allow(non_camel_case_types)]
+#[derive(CandidType, Deserialize, Clone, Debug)]
+pub enum TxTokenOperation {
+    approve, mint, transfer, transferFrom
+}
+
+impl TxTokenOperation {
+    pub fn to_text(&self) -> String {
+        match self {
+            Self::approve => String::from("approve"),
+            Self::mint => String::from("mint"),
+            Self::transfer => String::from("transfer"),
+            Self::transferFrom => String::from("transferFrom"),
+        }
+    }
+}
+
+#[derive(CandidType, Deserialize, Clone, Debug)]
+pub struct TxRecord {
+    pub index: Nat,
+    pub caller: Option<Principal>,
+    pub op: TxTokenOperation,
+    pub from: Principal,
+    pub to: Principal,
+    pub amount: Nat,
+    pub fee: Nat,
+    pub timestamp: Int,
+}
+
+#[allow(non_snake_case)]
+#[derive(CandidType, Deserialize, Clone, Debug)]
+pub struct TokenInfo {
+    pub canisterId: Principal,
+    pub decimals: u8, // Nat8
+    pub fee: Nat,
+    pub index: Nat,
+    pub logo: String,
+    pub name: String,
+    pub owner: Principal,
+    pub symbol: String,
+    pub timestamp: Int,
+    pub totalSupply: Nat,
 }

@@ -1804,6 +1804,7 @@ dependencies = [
  "ic-agent",
  "rusqlite",
  "serde",
+ "serde_json",
  "tokio",
 ]
 

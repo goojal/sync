@@ -1,0 +1,22 @@
+[
+    {
+        "canister_id": "5l7rb-caaaa-aaaah-qbolq-cai",
+        "canister_type": "token",
+        "db": "./a.db"
+    },
+    {
+        "canister_id": "42vp6-2iaaa-aaaah-qbooa-cai",
+        "canister_type": "token",
+        "db": "./b.db"
+    },
+    {
+        "canister_id": "4ps6t-3aaaa-aaaah-qbonq-cai",
+        "canister_type": "token-registry",
+        "db": "./c.db"
+    },
+    {
+        "canister_id": "4bqt3-aqaaa-aaaah-qbomq-cai",
+        "canister_type": "dswap-storage",
+        "db": "./d.db"
+    }
+]
