@@ -1,8 +1,11 @@
-use ic_agent::{Agent, identity::BasicIdentity, ic_types::Principal, agent::http_transport::ReqwestHttpReplicaV2Transport};
-use candid::{Encode, Decode, CandidType, types::number::{Nat, Int}};
+use candid::{types::number::Nat, Decode, Encode};
+use ic_agent::{
+    agent::http_transport::ReqwestHttpReplicaV2Transport, ic_types::Principal,
+    identity::BasicIdentity, Agent,
+};
+use rusqlite::{Connection, ToSql};
 use serde::Deserialize;
-use std::{fs, env, thread, time::Duration};
-use rusqlite::Connection;
+use std::{fs, thread, time::Duration};
 
 mod types;
 
@@ -26,7 +29,7 @@ struct CanisterConfig {
 #[tokio::main]
 async fn main() {
     let config_data = fs::read_to_string(CONFIG_PATH).expect("Unable to read config file");
-    let config_list: Vec<CanisterConfig> = serde_json::from_str(&config_data[..]).unwrap();
+    let config_list: Vec<CanisterConfig> = serde_json::from_str(config_data.as_str()).unwrap();
     let mut join_handle_list = vec![];
     for config in config_list {
         println!("Starting following canister: {:?}", config);
@@ -41,8 +44,6 @@ async fn main() {
 }
 
 async fn sync_canister(config: CanisterConfig) {
-    let mut begin: Nat = Nat::from(0);
-
     let agent = Agent::builder()
         .with_transport(
             ReqwestHttpReplicaV2Transport::create(DEFAULT_IC_GATEWAY)
@@ -52,253 +53,197 @@ async fn sync_canister(config: CanisterConfig) {
         .build()
         .expect("Failed to build the Agent");
 
+    let mut begin: Nat = Nat::from(0);
     let mut num = QUERY_NUM_S;
-    let mut interval = 0;
+    let mut interval: u64;
+    let mut result_len: usize = 0;
     loop {
         if config.canister_type == String::from("token") {
-            let response = agent.query(&Principal::from_text(config.canister_id.clone()).expect("Failed to convert canister_id to principal"), "historySize")
-                .with_arg(&Encode!(&begin, &Nat::from(num)).unwrap())
-                .call()
-                .await
-                .expect("Failed to call canister");
-            let history_size = Decode!(response.as_slice(), Nat).expect("Failed to decode the historySize response data.");
-
-            let response = agent.query(&Principal::from_text(config.canister_id.clone()).expect("Failed to convert canister_id to principal"), "getTransactions")
-                .with_arg(&Encode!(&begin, &Nat::min(history_size.clone(), Nat::from(num) - begin.clone())).unwrap())
-                .call()
-                .await
-                .expect("Failed to call canister");
-
-            let result = Decode!(response.as_slice(), Vec<TxRecord>).expect("Failed to decode the getTransactions response data.");
-            println!("Read from {} to {} from token canister", begin.clone(), begin.clone() + result.len() - 1);
-            save_transactions_to_db(result.clone(), config.db.clone());
-
-            if result.len() < num {
-                begin += result.len();
-                num = QUERY_NUM;
-                interval = INTERVAL;
-                thread::sleep(Duration::from_millis(interval));
-            } else {
-                begin += num;
-                num = QUERY_NUM_S;
-                interval = INTERVAL_S;
-                thread::sleep(Duration::from_millis(interval));
+            let history_size: Nat = get_history_size(&agent, config.canister_id.clone()).await;
+            let raw_transactions = get_trasnactions(
+                &agent,
+                config.canister_id.clone(),
+                begin.clone(),
+                Nat::min(
+                    history_size.clone() - begin.clone(),
+                    Nat::from(num) - begin.clone(),
+                ),
+            )
+            .await;
+            let result = Decode!(raw_transactions.as_slice(), Vec<TxRecord>)
+                .expect("Failed to decode the getTransactions response data.");
+            if result.len() > 0 {
+                println!(
+                    "Read from {} to {} from token canister",
+                    begin.clone(),
+                    begin.clone() + result.len() - 1
+                );
             }
+            save_to_db(result.clone(), config.db.clone());
+            result_len = result.len();
         } else if config.canister_type == String::from("token-burn") {
-            let response = agent.query(&Principal::from_text(config.canister_id.clone()).expect("Failed to convert canister_id to principal"), "historySize")
-                .with_arg(&Encode!(&begin, &Nat::from(num)).unwrap())
-                .call()
-                .await
-                .expect("Failed to call canister");
-            let history_size = Decode!(response.as_slice(), Nat).expect("Failed to decode the historySize response data.");
-
-            let response = agent.query(&Principal::from_text(config.canister_id.clone()).expect("Failed to convert canister_id to principal"), "getTransactions")
-                .with_arg(&Encode!(&begin, &Nat::min(history_size.clone(), Nat::from(num) - begin.clone())).unwrap())
-                .call()
-                .await
-                .expect("Failed to call canister");
-
-            let result = Decode!(response.as_slice(), Vec<TxRecordBurn>).expect("Failed to decode the getTransactions response data.");
-            println!("Read from {} to {} from token canister", begin.clone(), begin.clone() + result.len() - 1);
-            save_burn_transactions_to_db(result.clone(), config.db.clone());
-
-            if result.len() < num {
-                begin += result.len();
-                num = QUERY_NUM;
-                interval = INTERVAL;
-                thread::sleep(Duration::from_millis(interval));
-            } else {
-                begin += num;
-                num = QUERY_NUM_S;
-                interval = INTERVAL_S;
-                thread::sleep(Duration::from_millis(interval));
+            let history_size: Nat = get_history_size(&agent, config.canister_id.clone()).await;
+            let raw_transactions = get_trasnactions(
+                &agent,
+                config.canister_id.clone(),
+                begin.clone(),
+                Nat::min(
+                    history_size.clone() - begin.clone(),
+                    Nat::from(num) - begin.clone(),
+                ),
+            )
+            .await;
+            let result = Decode!(raw_transactions.as_slice(), Vec<TxRecordBurn>)
+                .expect("Failed to decode the getTransactions response data.");
+            if result.len() > 0 {
+                println!(
+                    "Read from {} to {} from token canister",
+                    begin.clone(),
+                    begin.clone() + result.len() - 1
+                );
             }
+            save_to_db(result.clone(), config.db.clone());
+            result_len = result.len();
         } else if config.canister_type == String::from("token-registry") {
-            let response = agent.query(&Principal::from_text(config.canister_id.clone()).expect("Failed to convert canister_id to principal"), "getTokens")
-                .with_arg(&Encode!(&begin, &Nat::from(num)).unwrap())
-                .call()
-                .await
-                .expect("Failed to call canister");
-
-            let result = Decode!(response.as_slice(), Vec<TokenInfo>).expect("Failed to decode the getTokens response data.");
-            println!("Read from {} to {} from token-registry canister", begin.clone(), begin.clone() + result.len() - 1);
-            save_tokens_to_db(result.clone(), config.db.clone());
-
-            if result.len() < num {
-                begin += result.len();
-                num = QUERY_NUM;
-                interval = INTERVAL;
-                thread::sleep(Duration::from_millis(interval));
-            } else {
-                begin += num;
-                num = QUERY_NUM_S;
-                interval = INTERVAL_S;
-                thread::sleep(Duration::from_millis(interval));
+            let result = get_tokens(
+                &agent,
+                config.canister_id.clone(),
+                begin.clone(),
+                Nat::from(num),
+            )
+            .await;
+            if result.len() > 0 {
+                println!(
+                    "Read from {} to {} from token-registry canister",
+                    begin.clone(),
+                    begin.clone() + result.len() - 1
+                );
             }
+            save_to_db(result.clone(), config.db.clone());
+            result_len = result.len();
         } else if config.canister_type == String::from("dswap-storage") {
-            let response = agent.query(&Principal::from_text(config.canister_id.clone()).expect("Failed to convert canister_id to principal"), "historySize")
-                .with_arg(&Encode!(&begin, &Nat::from(num)).unwrap())
-                .call()
-                .await
-                .expect("Failed to call canister");
-            let history_size = Decode!(response.as_slice(), Nat).expect("Failed to decode the historySize response data.");
-
-            let response = agent.query(&Principal::from_text(config.canister_id.clone()).expect("Failed to convert canister_id to principal"), "getTransactions")
-                .with_arg(&Encode!(&begin, &Nat::min(history_size.clone(), Nat::from(num) - begin.clone())).unwrap())
-                .call()
-                .await
-                .expect("Failed to call canister");
-
-            let result = Decode!(response.as_slice(), Vec<DSwapOpRecord>).expect("Failed to decode the response data.");
-            println!("Read from {} to {} from dswap canister", begin.clone(), begin.clone() + result.len() - 1);
-            save_dswaps_to_db(result.clone(), config.db.clone());
-
-            if result.len() < num {
-                begin += result.len();
-                num = QUERY_NUM;
-                interval = INTERVAL;
-                thread::sleep(Duration::from_millis(interval));
-            } else {
-                begin += num;
-                num = QUERY_NUM_S;
-                interval = INTERVAL_S;
-                thread::sleep(Duration::from_millis(interval));
+            let history_size: Nat = get_history_size(&agent, config.canister_id.clone()).await;
+            let raw_transactions = get_trasnactions(
+                &agent,
+                config.canister_id.clone(),
+                begin.clone(),
+                Nat::min(
+                    history_size.clone() - begin.clone(),
+                    Nat::from(num) - begin.clone(),
+                ),
+            )
+            .await;
+            let result = Decode!(raw_transactions.as_slice(), Vec<DSwapOpRecord>)
+                .expect("Failed to decode the getTransactions response data.");
+            if result.len() > 0 {
+                println!(
+                    "Read from {} to {} from dswap canister",
+                    begin.clone(),
+                    begin.clone() + result.len() - 1
+                );
             }
+            save_to_db(result.clone(), config.db.clone());
+            result_len = result.len();
+        }
+
+        if result_len < num {
+            begin += result_len;
+            num = QUERY_NUM;
+            interval = INTERVAL;
+            thread::sleep(Duration::from_millis(interval));
+        } else {
+            begin += num;
+            num = QUERY_NUM_S;
+            interval = INTERVAL_S;
+            thread::sleep(Duration::from_millis(interval));
         }
     }
 }
 
-fn save_transactions_to_db(data: Vec<TxRecord>, db_name: String) {
-    println!("Writing {:?} token transaction rows to db.", data.len());
-    let conn = Connection::open(&db_name[..]).expect("Failed to open db.");
+async fn get_history_size(agent: &Agent, canister_id: String) -> Nat {
+    let empty_arg = 0; // because no arg returns error!
+    let response = agent
+        .query(
+            &Principal::from_text(canister_id.clone()).expect(
+                format!(
+                    "Failed to convert this canister_id to principal: {}",
+                    canister_id
+                )
+                .as_str(),
+            ),
+            "historySize",
+        )
+        .with_arg(&Encode!(&empty_arg).unwrap())
+        .call()
+        .await
+        .expect("Failed to call canister on historySize.");
 
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS transactions (
-            id            INTEGER PRIMARY KEY,
-            indexs        INTEGER NOT NULL,
-            caller        TEXT NOT NULL,
-            op            TEXT NOT NULL,
-            froma         TEXT NOT NULL,
-            toa           TEXT NOT NULL,
-            amount        INTEGER NOT NULL,
-            fee           INTEGER NOT NULL,
-            timestamp     INTEGER NOT NULL
-        )",
-        [],
-    ).expect("Failed to create new transactions table.");
+    let history_size: Nat =
+        Decode!(response.as_slice(), Nat).expect("Failed to decode the historySize response data.");
 
-    for i in data {
-        let caller_or_none: String;
-        if i.caller.is_none() {
-            caller_or_none = String::from("None");
-        } else {
-            caller_or_none = i.caller.unwrap().to_string();
-        }
-        conn.execute(
-            "INSERT INTO transactions (indexs, caller, op, froma, toa, amount, fee, timestamp)
-            values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-            &[&i.index.to_string(), &caller_or_none, &i.op.to_text(), &i.from.to_text().to_string(),
-            &i.to.to_text().to_string(), &i.amount.to_string(), &i.fee.to_string(), &i.timestamp.to_string()],
-        ).expect("Failed to insert transaction to transactions table.");
-    } 
+    history_size
 }
 
-fn save_burn_transactions_to_db(data: Vec<TxRecordBurn>, db_name: String) {
-    println!("Writing {:?} token-burn transaction rows to db.", data.len());
-    let conn = Connection::open(&db_name[..]).expect("Failed to open db.");
+async fn get_trasnactions(agent: &Agent, canister_id: String, start: Nat, limit: Nat) -> Vec<u8> {
+    let response = agent
+        .query(
+            &Principal::from_text(canister_id.clone()).expect(
+                format!(
+                    "Failed to convert this canister_id to principal: {}",
+                    canister_id
+                )
+                .as_str(),
+            ),
+            "getTransactions",
+        )
+        .with_arg(&Encode!(&start, &limit).unwrap())
+        .call()
+        .await
+        .expect("Failed to call canister on getTransactions");
 
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS transactions (
-            id            INTEGER PRIMARY KEY,
-            indexs        INTEGER NOT NULL,
-            caller        TEXT NOT NULL,
-            op            TEXT NOT NULL,
-            froma         TEXT NOT NULL,
-            toa           TEXT NOT NULL,
-            amount        INTEGER NOT NULL,
-            fee           INTEGER NOT NULL,
-            timestamp     INTEGER NOT NULL
-        )",
-        [],
-    ).expect("Failed to create new transactions table.");
-
-    for i in data {
-        let caller_or_none: String;
-        if i.caller.is_none() {
-            caller_or_none = String::from("None");
-        } else {
-            caller_or_none = i.caller.unwrap().to_string();
-        }
-        conn.execute(
-            "INSERT INTO transactions (indexs, caller, op, froma, toa, amount, fee, timestamp)
-            values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-            &[&i.index.to_string(), &caller_or_none, &i.op.to_text(), &i.from.to_text().to_string(),
-            &i.to.to_text().to_string(), &i.amount.to_string(), &i.fee.to_string(), &i.timestamp.to_string()],
-        ).expect("Failed to insert transaction to transactions table.");
-    } 
+    response
 }
 
-fn save_tokens_to_db(data: Vec<TokenInfo>, db_name: String) {
-    println!("Writing {:?} token info rows to db.", data.len());
-    let conn = Connection::open(&db_name[..]).expect("Failed to open db.");
+async fn get_tokens(agent: &Agent, canister_id: String, start: Nat, limit: Nat) -> Vec<TokenInfo> {
+    let response = agent
+        .query(
+            &Principal::from_text(canister_id.clone()).expect(
+                format!(
+                    "Failed to convert this canister_id to principal: {}",
+                    canister_id
+                )
+                .as_str(),
+            ),
+            "getTokens",
+        )
+        .with_arg(&Encode!(&start, &limit).unwrap())
+        .call()
+        .await
+        .expect("Failed to call canister on getTokens.");
 
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS tokens (
-            id            INTEGER PRIMARY KEY,
-            canisterId    TEXT NOT NULL,
-            decimals      INTEGER NOT NULL,
-            fee           INTEGER NOT NULL,
-            indexs        INTEGER NOT NULL,
-            logo          TEXT NOT NULL,
-            name          TEXT NOT NULL,
-            owner         TEXT NOT NULL,
-            symbol        TEXT NOT NULL,
-            timestamp     INTEGER NOT NULL,
-            totalSupply   INTEGER NOT NULL
-        )",
-        [],
-    ).expect("Failed to create new tokens table.");
+    let result = Decode!(response.as_slice(), Vec<TokenInfo>)
+        .expect("Failed to decode the getTokens response data.");
 
-    for i in data {
-        conn.execute(
-            "INSERT INTO tokens (canisterId, decimals, fee, indexs, logo, name, owner, symbol, timestamp, totalSupply)
-            values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
-            &[&i.canisterId.to_text().to_string(), &i.decimals.to_string(), &i.fee.to_string(), &i.index.to_string(), 
-            &i.logo.to_string(), &i.name.to_string(), &i.owner.to_text().to_string(), &i.symbol.to_string(),
-            &i.timestamp.to_string(), &i.totalSupply.to_string()],
-        ).expect("Failed to insert token info to tokens table.");
-    } 
+    result
 }
 
-fn save_dswaps_to_db(data: Vec<DSwapOpRecord>, db_name: String) {
-    println!("Writing {:?} dswap transaction rows to db.", data.len());
-    let conn = Connection::open(&db_name[..]).expect("Failed to open db.");
+fn save_to_db<T: Database>(data: Vec<T>, db_name: String) {
+    println!("Writing {:?} rows to db: {}.", data.len(), db_name);
+    if data.len() < 1 {
+        return;
+    }
+    let conn = Connection::open(db_name.as_str())
+        .expect(format!("Failed to open db: {}.", db_name).as_str());
 
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS transactions (
-            id            INTEGER PRIMARY KEY,
-            caller        TEXT NOT NULL,
-            op            TEXT NOT NULL,
-            indexs        INTEGER NOT NULL,
-            token_id      TEXT NOT NULL,
-            froma          TEXT NOT NULL,
-            toa            TEXT NOT NULL,
-            amount        INTEGER NOT NULL,
-            amount0       INTEGER NOT NULL,
-            amount1       INTEGER NOT NULL,
-            timestamp     INTEGER NOT NULL
-        )",
-        [],
-    ).expect("Failed to new transactions table.");
+    conn.execute(data[0].db_init_command(), [])
+        .expect(format!("Failed to create table in db: {}.", db_name).as_str());
 
     for i in data {
-        conn.execute(
-            "INSERT INTO transactions (caller, op, indexs, token_id, froma, toa, amount, amount0, amount1, timestamp)
-            values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
-            &[&i.caller.to_text().to_string(), &i.op.to_text(), &i.index.to_string(), &i.tokenId, &i.from.to_text().to_string(),
-            &i.to.to_text().to_string(), &i.amount.to_string(), &i.amount0.to_string(), &i.amount1.to_string(), &i.timestamp.to_string()],
-        ).expect("Failed to insert ops to transactions table.");
-    } 
+        let insert_values = i.db_insert_values();
+        let query_values: Vec<_> = insert_values.iter().map(|x| x as &dyn ToSql).collect();
+        conn.execute(i.db_insert_header(), &*query_values)
+            .expect(format!("Failed to insert in db: {}.", db_name).as_str());
+    }
 }
 
 fn create_identity() -> BasicIdentity {
