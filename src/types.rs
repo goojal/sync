@@ -41,18 +41,19 @@ impl DSwapOperation {
     }
 }
 
-#[derive(Debug)]
+#[allow(non_snake_case)]
+#[derive(CandidType, Deserialize, Clone, Debug)]
 pub struct DSwapTxRecord {
-    index: u64,
-    caller: String,
+    index: Nat,
+    caller: Principal,
     op: DSwapOperation,
-    token_id: String,
-    from: String,
-    to: String,
-    amount: u64,
-    amount0: u64,
-    amount1: u64,
-    timestamp: u64,
+    tokenId: String,
+    from: Principal,
+    to: Principal,
+    amount: Nat,
+    amount0: Nat,
+    amount1: Nat,
+    timestamp: Int,
 }
 
 // TODO: 1. sync dswap pair info 2. calculate stats info for each pair: trading volume, fees, etc.
@@ -121,7 +122,7 @@ impl WICPOperation {
 pub struct WICPTxRecord {
     pub index: Nat,
     pub caller: Option<Principal>,
-    pub op: TxTokenOperationBurn,
+    pub op: WICPOperation,
     pub from: Principal,
     pub to: Principal,
     pub amount: Nat,

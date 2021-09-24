@@ -70,7 +70,7 @@ async fn sync_canister(config: CanisterConfig) {
                 ),
             )
             .await;
-            let result = Decode!(raw_transactions.as_slice(), Vec<TxRecord>)
+            let result = Decode!(raw_transactions.as_slice(), Vec<TokenTxRecord>)
                 .expect("Failed to decode the getTransactions response data.");
             if result.len() > 0 {
                 println!(
@@ -93,7 +93,7 @@ async fn sync_canister(config: CanisterConfig) {
                 ),
             )
             .await;
-            let result = Decode!(raw_transactions.as_slice(), Vec<TxRecordBurn>)
+            let result = Decode!(raw_transactions.as_slice(), Vec<WICPTxRecord>)
                 .expect("Failed to decode the getTransactions response data.");
             if result.len() > 0 {
                 println!(
@@ -133,7 +133,7 @@ async fn sync_canister(config: CanisterConfig) {
                 ),
             )
             .await;
-            let result = Decode!(raw_transactions.as_slice(), Vec<DSwapOpRecord>)
+            let result = Decode!(raw_transactions.as_slice(), Vec<DSwapTxRecord>)
                 .expect("Failed to decode the getTransactions response data.");
             if result.len() > 0 {
                 println!(
