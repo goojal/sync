@@ -6,7 +6,7 @@
     },
     {
         "canister_id": "42vp6-2iaaa-aaaah-qbooa-cai",
-        "canister_type": "token-burn",
+        "canister_type": "wicp",
         "db": "./b.db"
     },
     {
