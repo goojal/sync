@@ -81,7 +81,7 @@ async fn sync_canister(config: CanisterConfig) {
             }
             save_to_db(result.clone(), config.db.clone());
             result_len = result.len();
-        } else if config.canister_type == String::from("token-burn") {
+        } else if config.canister_type == String::from("wicp") {
             let history_size: Nat = get_history_size(&agent, config.canister_id.clone()).await;
             let raw_transactions = get_trasnactions(
                 &agent,
