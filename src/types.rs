@@ -11,8 +11,10 @@ pub enum DSwapOperation {
     deposit,
     withdraw,
     tokenTransfer,
+    tokenTransferFrom,
     tokenApprove,
     lpTransfer,
+    lpTransferFrom,
     lpApprove,
     createPair,
     swap,
@@ -26,8 +28,10 @@ impl DSwapOperation {
             Self::deposit => String::from("deposit"),
             Self::withdraw => String::from("withdraw"),
             Self::tokenTransfer => String::from("tokenTransfer"),
+            Self::tokenTransferFrom => String::from("tokenTransferFrom"),
             Self::tokenApprove => String::from("tokenApprove"),
             Self::lpTransfer => String::from("lpTransfer"),
+            Self::lpTransferFrom => String::from("lpTransferFrom"),
             Self::lpApprove => String::from("lpApprove"),
             Self::createPair => String::from("createPair"),
             Self::swap => String::from("swap"),
@@ -37,23 +41,8 @@ impl DSwapOperation {
     }
 }
 
-#[allow(non_snake_case)]
-#[derive(CandidType, Deserialize, Clone, Debug)]
-pub struct DSwapOpRecord {
-    pub caller: Principal,
-    pub op: DSwapOperation,
-    pub index: Nat,
-    pub tokenId: String,
-    pub from: Principal,
-    pub to: Principal,
-    pub amount: Nat,
-    pub amount0: Nat,
-    pub amount1: Nat,
-    pub timestamp: Int,
-}
-
 #[derive(Debug)]
-pub struct DSwapHistory {
+pub struct DSwapTxRecord {
     index: u64,
     caller: String,
     op: DSwapOperation,
@@ -70,85 +59,18 @@ pub struct DSwapHistory {
 #[derive(CandidType, Deserialize, Clone, Debug)]
 pub enum TokenOperation {
     mint,
-    burn,
-    transfer,
-    approve,
-    init,
-}
-
-#[allow(non_snake_case)]
-#[derive(CandidType, Deserialize, Clone, Debug)]
-pub struct TokenOpRecord {
-    caller: Principal,
-    op: TokenOperation,
-    index: Nat,
-    from: Principal,
-    to: Principal,
-    amount: Nat,
-    fee: Nat,
-    timestamp: Int,
-}
-
-#[derive(Debug)]
-pub struct TokenHistory {
-    index: u64,
-    caller: String,
-    op: TokenOperation,
-    from: String,
-    to: String,
-    amount: u64,
-    fee: u64,
-    timestamp: u64,
-}
-
-#[allow(non_camel_case_types)]
-#[derive(CandidType, Deserialize, Clone, Debug)]
-pub enum TxTokenOperation {
-    approve,
-    mint,
-    transfer,
-    transferFrom,
-}
-
-impl TxTokenOperation {
-    pub fn to_text(&self) -> String {
-        match self {
-            Self::approve => String::from("approve"),
-            Self::mint => String::from("mint"),
-            Self::transfer => String::from("transfer"),
-            Self::transferFrom => String::from("transferFrom"),
-        }
-    }
-}
-
-#[derive(CandidType, Deserialize, Clone, Debug)]
-pub struct TxRecord {
-    pub index: Nat,
-    pub caller: Option<Principal>,
-    pub op: TxTokenOperation,
-    pub from: Principal,
-    pub to: Principal,
-    pub amount: Nat,
-    pub fee: Nat,
-    pub timestamp: Int,
-}
-
-#[allow(non_camel_case_types)]
-#[derive(CandidType, Deserialize, Clone, Debug)]
-pub enum TxTokenOperationBurn {
-    approve,
     burn(u64),
-    mint,
     transfer,
     transferFrom,
+    approve
 }
 
-impl TxTokenOperationBurn {
+impl TokenOperation {
     pub fn to_text(&self) -> String {
         match self {
             Self::approve => String::from("approve"),
-            Self::burn(c) => format!("burn {}", c),
             Self::mint => String::from("mint"),
+            Self::burn(c) => format!("burn {}", c),
             Self::transfer => String::from("transfer"),
             Self::transferFrom => String::from("transferFrom"),
         }
@@ -156,16 +78,50 @@ impl TxTokenOperationBurn {
 }
 
 #[derive(CandidType, Deserialize, Clone, Debug)]
-pub struct TxRecordBurn {
+pub struct TokenTxRecord {
     pub index: Nat,
     pub caller: Option<Principal>,
-    pub op: TxTokenOperationBurn,
+    pub op: TokenOperation,
     pub from: Principal,
     pub to: Principal,
     pub amount: Nat,
     pub fee: Nat,
     pub timestamp: Int,
 }
+
+// #[allow(non_camel_case_types)]
+// #[derive(CandidType, Deserialize, Clone, Debug)]
+// pub enum WICPOperation {
+//     approve,
+//     burn(u64),
+//     mint,
+//     transfer,
+//     transferFrom,
+// }
+
+// impl WICPOperation {
+//     pub fn to_text(&self) -> String {
+//         match self {
+//             Self::approve => String::from("approve"),
+//             Self::burn(c) => format!("burn {}", c),
+//             Self::mint => String::from("mint"),
+//             Self::transfer => String::from("transfer"),
+//             Self::transferFrom => String::from("transferFrom"),
+//         }
+//     }
+// }
+
+// #[derive(CandidType, Deserialize, Clone, Debug)]
+// pub struct WICPTxRecord {
+//     pub index: Nat,
+//     pub caller: Option<Principal>,
+//     pub op: TxTokenOperationBurn,
+//     pub from: Principal,
+//     pub to: Principal,
+//     pub amount: Nat,
+//     pub fee: Nat,
+//     pub timestamp: Int,
+// }
 
 #[allow(non_snake_case)]
 #[derive(CandidType, Deserialize, Clone, Debug)]
@@ -188,7 +144,7 @@ pub trait Database {
     fn db_insert_values(&self) -> Vec<String>;
 }
 
-impl Database for TxRecord {
+impl Database for TokenTxRecord {
     fn db_init_command(&self) -> &str {
         return "CREATE TABLE IF NOT EXISTS transactions (
                     id            INTEGER PRIMARY KEY,
@@ -229,46 +185,46 @@ impl Database for TxRecord {
     }
 }
 
-impl Database for TxRecordBurn {
-    fn db_init_command(&self) -> &str {
-        return "CREATE TABLE IF NOT EXISTS transactions (
-                    id            INTEGER PRIMARY KEY,
-                    indexs        INTEGER NOT NULL,
-                    caller        TEXT NOT NULL,
-                    op            TEXT NOT NULL,
-                    froma         TEXT NOT NULL,
-                    toa           TEXT NOT NULL,
-                    amount        INTEGER NOT NULL,
-                    fee           INTEGER NOT NULL,
-                    timestamp     INTEGER NOT NULL
-                )";
-    }
+// impl Database for WICPTxRecord {
+//     fn db_init_command(&self) -> &str {
+//         return "CREATE TABLE IF NOT EXISTS transactions (
+//                     id            INTEGER PRIMARY KEY,
+//                     indexs        INTEGER NOT NULL,
+//                     caller        TEXT NOT NULL,
+//                     op            TEXT NOT NULL,
+//                     froma         TEXT NOT NULL,
+//                     toa           TEXT NOT NULL,
+//                     amount        INTEGER NOT NULL,
+//                     fee           INTEGER NOT NULL,
+//                     timestamp     INTEGER NOT NULL
+//                 )";
+//     }
 
-    fn db_insert_header(&self) -> &str {
-        return "INSERT INTO transactions (indexs, caller, op, froma, toa, amount, fee, timestamp)
-                values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)";
-    }
+//     fn db_insert_header(&self) -> &str {
+//         return "INSERT INTO transactions (indexs, caller, op, froma, toa, amount, fee, timestamp)
+//                 values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)";
+//     }
 
-    fn db_insert_values(&self) -> Vec<String> {
-        let caller_or_none: String;
-        if self.caller.is_none() {
-            caller_or_none = String::from("None");
-        } else {
-            caller_or_none = self.caller.unwrap().to_string();
-        }
-        let ret = vec![
-            self.index.to_string(),
-            caller_or_none,
-            self.op.to_text(),
-            self.from.to_text().to_string(),
-            self.to.to_text().to_string(),
-            self.amount.to_string(),
-            self.fee.to_string(),
-            self.timestamp.to_string(),
-        ];
-        return ret;
-    }
-}
+//     fn db_insert_values(&self) -> Vec<String> {
+//         let caller_or_none: String;
+//         if self.caller.is_none() {
+//             caller_or_none = String::from("None");
+//         } else {
+//             caller_or_none = self.caller.unwrap().to_string();
+//         }
+//         let ret = vec![
+//             self.index.to_string(),
+//             caller_or_none,
+//             self.op.to_text(),
+//             self.from.to_text().to_string(),
+//             self.to.to_text().to_string(),
+//             self.amount.to_string(),
+//             self.fee.to_string(),
+//             self.timestamp.to_string(),
+//         ];
+//         return ret;
+//     }
+// }
 
 impl Database for TokenInfo {
     fn db_init_command(&self) -> &str {
@@ -309,7 +265,7 @@ impl Database for TokenInfo {
     }
 }
 
-impl Database for DSwapOpRecord {
+impl Database for DSwapTxRecord {
     fn db_init_command(&self) -> &str {
         return "CREATE TABLE IF NOT EXISTS transactions (
                     id            INTEGER PRIMARY KEY,
