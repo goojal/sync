@@ -55,6 +55,12 @@ pub struct DSwapTxRecord {
     timestamp: u64,
 }
 
+// TODO: 1. sync dswap pair info 2. calculate stats info for each pair: trading volume, fees, etc.
+// #[derive(Debug)]
+// pub struct DSwapPairInfo {
+   
+// }
+
 #[allow(non_camel_case_types)]
 #[derive(CandidType, Deserialize, Clone, Debug)]
 pub enum TokenOperation {
